@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 
+#include "detail/push.h"
 #include "detail/rollback.h"
 
 // The core defines a weak verifyRollbackLater() returning false, which makes
@@ -30,12 +31,14 @@ void begin(const Config& config, Observer& observer) {
     g_begun = true;
     detail::rollback::begin(observer, config.validate_after_network_ms,
                             config.validate_timeout_ms);
+    detail::push::configure(config, observer);
 }
 
 void setNetworkUp(bool up) {
     if (!g_begun) return;
     if (up && !g_network_seen) {
         g_network_seen = true;
+        detail::push::start();
         detail::rollback::networkUp(millis());
     }
 }
@@ -43,12 +46,13 @@ void setNetworkUp(bool up) {
 void poll() {
     if (!g_begun) return;
     detail::rollback::poll(millis());
+    detail::push::poll();
 }
 
 void requestCheck() {}
 
 void requestInstall() {}
 
-bool busy() { return false; }
+bool busy() { return g_begun && detail::push::busy(); }
 
 }  // namespace ota
