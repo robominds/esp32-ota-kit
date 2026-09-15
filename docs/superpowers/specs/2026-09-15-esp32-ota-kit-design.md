@@ -94,14 +94,14 @@ the API.
 namespace ota {
 
 struct Config {
-    const char* hostname;                  // mDNS and ArduinoOTA name, without ".local"
+    const char* hostname;                  // mDNS and ArduinoOTA name, without ".local"; required for push
     const char* push_password;             // ArduinoOTA password; nullptr disables push
     uint16_t    push_port = 3232;
     const char* manifest_url = nullptr;    // http URL of manifest.json; nullptr disables pull
     const char* running_version;           // this build's "MAJOR.MINOR.PATCH"
     uint32_t    auto_check_delay_ms = 5000;          // after first network up; 0 = never
     uint32_t    validate_after_network_ms = 30000;
-    uint32_t    validate_timeout_ms = 90000;         // from boot, without a network
+    uint32_t    validate_timeout_ms = 90000;         // from boot, whether or not the network came up
 };
 
 enum class Source { Push, Pull };
@@ -302,11 +302,16 @@ upload_port     = ${secrets.device_host}.local
 upload_flags    = --auth=${secrets.ota_password}
 ```
 
-The private-repository `lib_deps` form is verified in the first implementation
-task; if PlatformIO rejects `git+ssh://`, the fallback is
+The `git+ssh://` form was verified against the private repository (a scratch
+consumer fetched `#lib-1.0`, built, and linked `verifyRollbackLater`); the
+fallback, if a machine lacks SSH access, is
 `https://github.com/robominds/esp32-ota-kit.git#v1.0.0` with `gh auth
-setup-git` providing credentials. During development the demo uses
-`symlink://../../esp32-ota-kit`.
+setup-git` providing credentials. During development a sibling checkout is
+used with `symlink://${PROJECT_DIR}/../esp32-ota-kit` (a bare relative path
+resolves from PlatformIO's working directory, not the project). With a
+symlink dependency `.pio/libdeps/<env>/` holds only a link file, so
+`serve.py` runs from the library checkout (`../esp32-ota-kit/tools/serve.py
+--project .`) until the project switches to the git dependency.
 
 ## Logging
 
