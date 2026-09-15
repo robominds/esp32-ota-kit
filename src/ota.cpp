@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 
+#include "detail/pull.h"
 #include "detail/push.h"
 #include "detail/rollback.h"
 
@@ -32,27 +33,35 @@ void begin(const Config& config, Observer& observer) {
     detail::rollback::begin(observer, config.validate_after_network_ms,
                             config.validate_timeout_ms);
     detail::push::configure(config, observer);
+    detail::pull::configure(config, observer);
 }
 
 void setNetworkUp(bool up) {
     if (!g_begun) return;
+    const uint32_t now = millis();
     if (up && !g_network_seen) {
         g_network_seen = true;
         detail::push::start();
-        detail::rollback::networkUp(millis());
+        detail::rollback::networkUp(now);
     }
+    detail::pull::setNetworkUp(up, now);
 }
 
 void poll() {
     if (!g_begun) return;
     detail::rollback::poll(millis());
     detail::push::poll();
+    detail::pull::poll(millis());
 }
 
-void requestCheck() {}
+void requestCheck() {
+    if (g_begun) detail::pull::requestCheck();
+}
 
-void requestInstall() {}
+void requestInstall() {
+    if (g_begun) detail::pull::requestInstall();
+}
 
-bool busy() { return g_begun && detail::push::busy(); }
+bool busy() { return g_begun && (detail::push::busy() || detail::pull::busy()); }
 
 }  // namespace ota
