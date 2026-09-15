@@ -47,7 +47,9 @@ struct CheckResult {
 
 // Every method runs on the loop task, from inside begin() or poll(), and may
 // update widgets and call lv_timer_handler(). Strings are valid only during
-// the call. Do not call back into ota:: except busy().
+// the call. Do not call back into ota:: except busy(), and requestCheck() /
+// requestInstall() from input callbacks that lv_timer_handler() runs while an
+// observer repaints (they only queue work).
 class Observer {
 public:
     virtual ~Observer() = default;

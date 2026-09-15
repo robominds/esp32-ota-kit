@@ -112,7 +112,9 @@ void loop() {
   `requestInstall()` also needs the last check to have reported `Available`.
 - Observer methods run on the loop task inside `begin()` or `poll()`. They may
   update widgets and call `lv_timer_handler()`. They must not call back into
-  `ota::` except `busy()`. Strings passed to them are valid only during the
+  `ota::` except `busy()`; `requestCheck()` and `requestInstall()` are also
+  allowed from input callbacks that fire while an observer repaints, because
+  they only queue work. Strings passed to them are valid only during the
   call.
 - Checks and transfers block `poll()`: a check for up to about 10 s (5 s
   connect and read timeouts), a transfer until it finishes, fails, or receives
