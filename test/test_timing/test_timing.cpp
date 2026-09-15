@@ -104,6 +104,18 @@ static void test_throttle_reset_starts_over(void) {
     TEST_ASSERT_TRUE(p.shouldEmit(1001, 10));
 }
 
+static void test_throttle_repeated_100_suppressed(void) {
+    ProgressThrottle p;
+    TEST_ASSERT_TRUE(p.shouldEmit(1000, 100));
+    TEST_ASSERT_FALSE(p.shouldEmit(1500, 100));
+}
+
+static void test_confirm_network_after_timeout_is_due(void) {
+    ConfirmTimer t = timer();
+    TEST_ASSERT_TRUE(t.networkUp(95000));
+    TEST_ASSERT_TRUE(t.due(95000));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_confirm_not_due_before_network_or_timeout);
@@ -119,5 +131,7 @@ int main(int, char**) {
     RUN_TEST(test_throttle_always_emits_100);
     RUN_TEST(test_throttle_never_repeats_a_percent);
     RUN_TEST(test_throttle_reset_starts_over);
+    RUN_TEST(test_throttle_repeated_100_suppressed);
+    RUN_TEST(test_confirm_network_after_timeout_is_due);
     return UNITY_END();
 }

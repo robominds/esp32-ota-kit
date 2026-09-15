@@ -31,6 +31,9 @@ The repository is private: your machine needs SSH access to
 `github.com/robominds/esp32-ota-kit`.
 
 ```ini
+[platformio]
+extra_configs = secrets.ini
+
 [env:app]
 board_build.partitions    = default_16MB.csv
 board_upload.maximum_size = 6553600          ; one slot, so the size check is honest
@@ -49,8 +52,14 @@ upload_port     = ${secrets.device_host}.local
 upload_flags    = --auth=${secrets.ota_password}
 ```
 
-`secrets.ini` (gitignored, pulled in with `extra_configs = secrets.ini`) holds
-double-quoted values, for example `ota_password = "a-long-password"`.
+`secrets.ini` is gitignored and holds double-quoted values:
+
+```ini
+[secrets]
+device_host  = "my-device"
+ota_password = "a-long-password"
+```
+
 PlatformIO keeps the quotes, so the flags above add only the shell's single
 quotes. Values must not contain `"`, `'`, `\`, `$`, `` ` `` or `;`.
 
@@ -61,6 +70,7 @@ quotes. Values must not contain `"`, `'`, `\`, `$`, `` ` `` or `;`.
 #include <ota.h>
 
 class ScreenObserver : public ota::Observer {
+public:
     void onProgress(ota::Source, uint8_t percent) override { /* draw, repaint */ }
     void onError(ota::Source, const char* message) override { /* show it */ }
     // ...override only what you need; every method defaults to doing nothing
@@ -90,17 +100,35 @@ void loop() {
 ## Contract
 
 - Call `ota::begin()` once in `setup()`, before any other `ota::` call. The
-  `Config` strings must outlive the program.
+  `Config` strings must outlive the program. `Config::hostname` is required for
+  push.
+- `ota::begin()` writes the boot counter to NVS. On displays whose picture is
+  disturbed by flash writes, call it before turning the backlight on.
 - Call `ota::setNetworkUp()` and `ota::poll()` every loop, from `loop()`.
 - `ota::requestCheck()` and `ota::requestInstall()` may be called from button
   callbacks (including LVGL event callbacks). They only queue work for
-  `poll()`, which is what lets progress repaint during an install.
+  `poll()`, which is what lets progress repaint during an install. They are
+  ignored while `ota::busy()` is true or when pull is disabled, and
+  `requestInstall()` also needs the last check to have reported `Available`.
 - Observer methods run on the loop task inside `begin()` or `poll()`. They may
   update widgets and call `lv_timer_handler()`. They must not call back into
   `ota::` except `busy()`. Strings passed to them are valid only during the
   call.
-- Transfers block `poll()` until they finish or fail. The rest of `loop()`
-  (MQTT, sensors) pauses for that time.
+- Checks and transfers block `poll()`: a check for up to about 10 s (5 s
+  connect and read timeouts), a transfer until it finishes, fails, or receives
+  no data for 10 s. The rest of `loop()` (MQTT, sensors) pauses for that time.
+
+### Event order
+
+- **Push:** `onSlot` (only if the running image was still pending and is
+  confirmed first), `onTransferStarted(Push)`, `onProgress(Push, …)`,
+  `onRebooting(Push)`. A wrong password or an image that does not fit ends in
+  `onError(Push, …)` without `onTransferStarted`; a failed connection back to
+  the computer reports two errors (see Troubleshooting).
+- **Pull check:** `onCheckStarted`, then exactly one `onCheckResult`.
+- **Pull install:** `onTransferStarted(Pull)`, then `onSlot` if the running
+  image was still pending, `onProgress(Pull, …)`, `onRebooting(Pull)`; or
+  `onError(Pull, …)` at any point after `onTransferStarted`.
 
 ## Pull updates
 
@@ -113,11 +141,18 @@ void loop() {
    comes up, or when you call `ota::requestCheck()`. Call `ota::requestInstall()`
    after `onCheckResult` reports `Available`.
 
+`serve.py` reads `custom_fw_version` literally from the `[env:<env>]` you pass;
+it does not follow `extends` or `extra_configs`, so pass the env that defines
+it. While a project depends on the library through a local `symlink://` path,
+`.pio/libdeps` holds only a link file: run `tools/serve.py` from the library's
+own checkout instead.
+
 ## Confirmation and rollback
 
 An image installed by push or pull boots in *pending verify*. It is confirmed
 `validate_after_network_ms` (30 s) after the network first comes up, or
-`validate_timeout_ms` (90 s) after boot without a network. A build that crashes
+`validate_timeout_ms` (90 s) after boot, whichever comes first; the 90 s
+counts from boot whether or not the network has come up. A build that crashes
 or hangs before then is reverted by the bootloader on the next boot.
 
 If an update starts before the running image is confirmed, the running image is
@@ -141,7 +176,7 @@ update also reverts a good image.
 
 | Symptom | Cause / fix |
 | --- | --- |
-| espota `No response from device`; device logs `Receive Failed` | espota has the device connect back to the computer, and the firewall blocks PlatformIO's Python (`~/.platformio/penv/bin/python`). Allow it to accept incoming connections. |
+| espota `No response from device`; device logs `Receive Failed` | espota has the device connect back to the computer, and the firewall blocks PlatformIO's Python (`~/.platformio/penv/bin/python`). Allow it to accept incoming connections. The library logs `ota: push error 3 (receive failed)` or `ota: push error 2 (connect failed)`. |
 | Device reports `check failed: connection refused` while `serve.py` runs | The firewall blocks the Python running `serve.py`, or `manifest_url` has the wrong address. |
 | `install failed: MD5 Check Failed` | `firmware.bin` changed after the manifest was written. Restart `serve.py`. |
 | `install failed: connection lost` / `download stalled` | The server stopped or the network dropped during the download. Nothing was installed. |

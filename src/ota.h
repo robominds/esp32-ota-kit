@@ -20,14 +20,14 @@ namespace ota {
 
 // Strings must outlive the program; build-flag literals do.
 struct Config {
-    const char* hostname        = nullptr;   // mDNS and ArduinoOTA name, without ".local"
+    const char* hostname        = nullptr;   // mDNS and ArduinoOTA name, without ".local"; required for push
     const char* push_password   = nullptr;   // ArduinoOTA password; nullptr disables push
     uint16_t    push_port       = 3232;
     const char* manifest_url    = nullptr;   // http URL of manifest.json; nullptr disables pull
     const char* running_version = nullptr;   // this build's "MAJOR.MINOR.PATCH"
     uint32_t    auto_check_delay_ms       = 5000;    // after first network up; 0 = never
     uint32_t    validate_after_network_ms = 30000;
-    uint32_t    validate_timeout_ms       = 90000;   // from boot, without a network
+    uint32_t    validate_timeout_ms       = 90000;   // from boot, whether or not the network came up
 };
 
 enum class Source { Push, Pull };

@@ -22,7 +22,7 @@ Observer*    g_observer  = nullptr;
 ConfirmTimer g_timer;
 bool         g_confirmed = false;
 uint32_t     g_boots     = 0;
-char         g_label[8]  = "app?";
+char         g_label[17] = "app?";   // partition labels are up to 16 characters
 
 const char* stateText(esp_ota_img_states_t s) {
     switch (s) {

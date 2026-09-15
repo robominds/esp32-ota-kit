@@ -54,12 +54,15 @@ void poll() {
     detail::pull::poll(millis());
 }
 
+// Ignored while any transfer is busy, push included: an observer repainting
+// during a push can let a button tap through, and that request must not run
+// the moment a failed push returns.
 void requestCheck() {
-    if (g_begun) detail::pull::requestCheck();
+    if (g_begun && !busy()) detail::pull::requestCheck();
 }
 
 void requestInstall() {
-    if (g_begun) detail::pull::requestInstall();
+    if (g_begun && !busy()) detail::pull::requestInstall();
 }
 
 bool busy() { return g_begun && (detail::push::busy() || detail::pull::busy()); }

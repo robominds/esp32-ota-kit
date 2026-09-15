@@ -42,6 +42,10 @@ void configure(const Config& config, Observer& observer) {
 
 void start() {
     if (g_started || g_observer == nullptr || g_config.push_password == nullptr) return;
+    if (g_config.hostname == nullptr) {
+        Serial.println("ota: push disabled: Config::hostname is not set");
+        return;
+    }
     g_started = true;
 
     ArduinoOTA.setPort(g_config.push_port);
@@ -77,6 +81,8 @@ void start() {
         g_observer->onError(Source::Push, text);
     });
 
+    // ArduinoOTA.begin() returns nothing: if its UDP bind fails it only logs,
+    // and push stays silent. The OTA demo behaved the same way.
     ArduinoOTA.begin();
     Serial.printf("ota: push listening on %s.local:%u\n", g_config.hostname,
                   static_cast<unsigned>(g_config.push_port));
