@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — unreleased
+## 1.0.0 — 2026-09-15
 
 Initial release, extracted from the CrowPanel Advance 7.0-HMI OTA demo.
 
